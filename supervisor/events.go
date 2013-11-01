@@ -71,7 +71,6 @@ func readEvent(reader *bufio.Reader) *Event {
 
 func Listen(reader *bufio.Reader, ch chan *Event) (err error) {
 	defer func() {
-		fmt.Print("STOPPED\n")
 		close(ch)
 		if r := recover(); r != nil && r != io.EOF {
 			err = r.(error)
@@ -81,5 +80,6 @@ func Listen(reader *bufio.Reader, ch chan *Event) (err error) {
 	fmt.Print("READY\n")
 	for {
 		ch <- readEvent(reader)
+		fmt.Print("ACKNOWLEDGED\n")
 	}
 }
