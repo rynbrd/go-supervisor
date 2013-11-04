@@ -3,7 +3,6 @@ package supervisor
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,46 +17,52 @@ type Event struct {
 	Payload []byte
 }
 
-// getHeaderString returns the requested header value as a string or an error if it's missing.
-func (event Event) getHeaderString(key string) (string, error) {
+// getHeaderString returns the requested header value as a string or an empty string if missing.
+func (event Event) getHeaderString(key string) string {
 	if value, ok := event.Header[key]; ok {
-		return value, nil
+		return value
 	} else {
-		return "", errors.New(fmt.Sprintf("no %s value in header", key))
+		return ""
 	}
 }
 
-// getHeaderInt returns the requested header value as an int or an error if it's missing or unparseable.
-func (event Event) getHeaderInt(key string) (int, error) {
-	if value, ok := event.Header[key]; ok {
-		return strconv.Atoi(value)
-	} else {
-		return 0, errors.New(fmt.Sprintf("no %s value in header", key))
+// getHeaderInt returns the requested header value as an int or 0 if missing.
+func (event Event) getHeaderInt(key string) int {
+	strval, ok := event.Header[key]
+	if !ok {
+		return 0
 	}
+
+	intval, err := strconv.Atoi(strval)
+	if err != nil {
+		return 0
+	}
+
+	return intval
 }
 
 // Name returns the name of the event.
-func (event Event) Name() (string, error) {
+func (event Event) Name() string {
 	return event.getHeaderString("eventname")
 }
 
 // Serial returns the event serial number.
-func (event Event) Serial() (int, error) {
+func (event Event) Serial() int {
 	return event.getHeaderInt("serial")
 }
 
 // Pool returns the event pool where the event originated.
-func (event Event) Pool() (string, error) {
+func (event Event) Pool() string {
 	return event.getHeaderString("pool")
 }
 
 // PoolSerial returns the serial of the event in the event pool where the event originated.
-func (event Event) PoolSerial() (int, error) {
+func (event Event) PoolSerial() int {
 	return event.getHeaderInt("poolserial")
 }
 
 // Version returns the version of the Supervisor instance that sent the event.
-func (event Event) Version() (string, error) {
+func (event Event) Version() string {
 	return event.getHeaderString("ver")
 }
 
