@@ -1,10 +1,10 @@
 package supervisor
 
 import (
-	"strings"
 	"bufio"
 	"io"
 	"strconv"
+	"strings"
 	"testing"
 )
 
