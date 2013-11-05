@@ -126,8 +126,9 @@ func parsePayload(data []byte) (meta map[string]string, payload []byte) {
 // ReadEvent waits for a Supervisor event and returns the parsed event. The err
 // will be non-nil if an error occurred. This may include io.EOF which should
 // preceed closing of the reader.
-func ReadEvent(reader *bufio.Reader) (event *Event, err error) {
-	data, err := reader.ReadBytes('\n')
+func ReadEvent(reader io.Reader) (event *Event, err error) {
+	buf := bufio.NewReader(reader)
+	data, err := buf.ReadBytes('\n')
 	if err != nil {
 		return
 	}
@@ -139,7 +140,7 @@ func ReadEvent(reader *bufio.Reader) (event *Event, err error) {
 	}
 
 	rawPayload := make([]byte, length)
-	_, err = reader.Read(rawPayload)
+	_, err = buf.Read(rawPayload)
 	if err != nil {
 		return
 	}
@@ -152,7 +153,7 @@ func ReadEvent(reader *bufio.Reader) (event *Event, err error) {
 
 // WriteResult writes an event result to the stream and returns the number of
 // byte written and an error if one occurs.
-func WriteResult(writer *bufio.Writer, result []byte) (n int, err error) {
+func WriteResult(writer io.Writer, result []byte) (n int, err error) {
 	n, err = fmt.Fprintf(writer, "RESULT %v\n", len(result))
 	if err != nil {
 		return
@@ -160,23 +161,23 @@ func WriteResult(writer *bufio.Writer, result []byte) (n int, err error) {
 
 	n2, err := writer.Write(result)
 	n += n2
-	writer.Flush()
 	return
 }
 
 // WriteResultOK is a shortcut to write an OK result to the stream.
-func WriteResultOK(writer *bufio.Writer) (n int, err error) {
+func WriteResultOK(writer io.Writer) (n int, err error) {
 	return WriteResult(writer, []byte("OK"))
 }
 
 // WriteResultFail is a shortcut to write a Fail result to the stream.
-func WriteResultFail(writer *bufio.Writer) (n int, err error) {
+func WriteResultFail(writer io.Writer) (n int, err error) {
 	return WriteResult(writer, []byte("FAIL"))
 }
 
 // ReadResult reads an event result and returns the payload.
-func ReadResult(reader *bufio.Reader) (payload []byte, err error) {
-	header, err := reader.ReadBytes('\n')
+func ReadResult(reader io.Reader) (payload []byte, err error) {
+	buf := bufio.NewReader(reader)
+	header, err := buf.ReadBytes('\n')
 	if err != nil {
 		return
 	}
@@ -193,7 +194,7 @@ func ReadResult(reader *bufio.Reader) (payload []byte, err error) {
 	}
 
 	payload = make([]byte, length)
-	_, err = reader.Read(payload)
+	_, err = buf.Read(payload)
 	return
 }
 
@@ -201,7 +202,7 @@ func ReadResult(reader *bufio.Reader) (payload []byte, err error) {
 // the provided channel. It responds to Supervisor with an OK after queuing an
 // event in the channel. It returns an error if one occurs or nil if the reader
 // encounters an EOF.
-func Listen(in *bufio.Reader, out *bufio.Writer, ch chan *Event) error {
+func Listen(in io.Reader, out io.Writer, ch chan *Event) error {
 	var event *Event
 	var err error
 

@@ -134,11 +134,9 @@ func TestRead(t *testing.T) {
 // Test the WriteResult functions.
 func TestWrite(t *testing.T) {
 	reader, writer := io.Pipe()
-	bufReader := bufio.NewReader(reader)
-	bufWriter := bufio.NewWriter(writer)
 
 	readAndVerify := func(expected string) {
-		payload, err := ReadResult(bufReader)
+		payload, err := ReadResult(reader)
 		switch {
 		case err != nil:
 			t.Error(err)
@@ -148,13 +146,13 @@ func TestWrite(t *testing.T) {
 	}
 
 	payload := "some arbitrary data"
-	go WriteResult(bufWriter, []byte(payload))
+	go WriteResult(writer, []byte(payload))
 	readAndVerify(payload)
 
-	go WriteResultOK(bufWriter)
+	go WriteResultOK(writer)
 	readAndVerify("OK")
 
-	go WriteResultFail(bufWriter)
+	go WriteResultFail(writer)
 	readAndVerify("FAIL")
 }
 
@@ -167,7 +165,7 @@ func TestListen(t *testing.T) {
 	reader := bufio.NewReader(stdoutReader)
 
 	go func() {
-		if err := Listen(bufio.NewReader(stdin), bufio.NewWriter(stdout), ch); err != nil {
+		if err := Listen(stdin, stdout, ch); err != nil {
 			t.Error(err)
 		}
 	}()
