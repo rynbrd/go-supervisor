@@ -3,81 +3,141 @@ package supervisor
 import (
 	"bufio"
 	"io"
+	"os"
 	"strconv"
+	"syscall"
 	"testing"
 )
 
+// Compare two string/string maps.
+func cmpMap(m1 map[string]string, m2 map[string]string) bool {
+	if len(m1) != len(m2) {
+		return false
+	}
+	for k, v := range m2 {
+		if v != m1[k] {
+			return false
+		}
+	}
+	return true
+}
+
+// Compare two byte arrays.
+func cmpBytes(p1 []byte, p2 []byte) bool {
+	if p1 == nil {
+		p1 = []byte{}
+	}
+	if p2 == nil {
+		p2 = []byte{}
+	}
+
+	if len(p1) != len(p2) {
+		return false
+	}
+	for i, v := range p2 {
+		if v != p1[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Compare two events
+func cmpEvents(e1 *Event, e2 *Event) bool {
+	switch {
+	case e1 == nil && e2 == nil:
+		return true
+	case e1 == nil || e2 == nil:
+		return false
+	default:
+		return cmpMap(e1.Header, e2.Header) && cmpMap(e1.Meta, e2.Meta) && cmpBytes(e1.Payload, e2.Payload)
+	}
+}
+
+// Redirect stdout.
+func redirectStdout() (stdout *os.File, err error) {
+	stdout, stdoutWriter, err := os.Pipe()
+	if err == nil {
+		err = syscall.Dup2(int(stdoutWriter.Fd()), int(os.Stdout.Fd()))
+	}
+	return
+}
+
+// Redirect stdin.
+func redirectStdin() (stdin *os.File, err error) {
+	stdinReader, stdin, err := os.Pipe()
+	if err == nil {
+		err = syscall.Dup2(int(stdinReader.Fd()), int(syscall.Stdin))
+	}
+	return
+}
+
+func unredirectStdout() (err error) {
+	stdout := os.NewFile(uintptr(syscall.Stdout), "/dev/stdout")
+	if err == nil {
+		err = syscall.Dup2(int(stdout.Fd()), int(os.Stdout.Fd()))
+	}
+	return
+}
+
+// Construct an event.
+func createEvent(serial int, eventname string, processname string, payload []byte) *Event {
+	serialstr := strconv.Itoa(serial)
+	return &Event{
+		map[string]string{
+			"ver":        "3.0",
+			"server":     "supervisor",
+			"eventname":  eventname,
+			"serial":     serialstr,
+			"pool":       "listener",
+			"poolserial": serialstr,
+		},
+		map[string]string{
+			"processname": processname,
+			"groupname":   processname,
+		},
+		payload,
+	}
+}
+
+// Test the ReadEvent function.
 func TestRead(t *testing.T) {
 	reader, writer := io.Pipe()
 	bufReader := bufio.NewReader(reader)
 	serial := 0
-	header := map[string]string{
-		"ver":    "3.0",
-		"server": "supervisor",
-		"pool":   "listener",
-	}
 
-	send := func(eventname string, meta map[string]string, payload []byte) {
-		header["serial"] = strconv.Itoa(serial)
-		header["poolserial"] = header["serial"]
-		header["eventname"] = eventname
-		event := new(Event)
-		event.Header = header
-		event.Meta = meta
-		event.Payload = payload
-		writer.Write(event.ToBytes())
-		serial += 1
-	}
+	sendAndVerify := func(eventname string, payload []byte) {
+		sentEvent := createEvent(serial, eventname, "test", payload)
+		serial++
 
-	send_and_verify := func(eventname string, meta map[string]string, payload []byte) {
-		go send("TEST", meta, payload)
-		event, err := ReadEvent(bufReader)
+		go func() {
+			_, err := writer.Write(sentEvent.ToBytes())
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+
+		receiveEvent, err := ReadEvent(bufReader)
 		if err != nil {
 			t.Error(err)
 		}
 
-		cmpMap := func(m1 map[string]string, m2 map[string]string) bool {
-			for k, v := range m2 {
-				if v != m1[k] {
-					return false
-				}
-			}
-			return true
-		}
-
-		cmpPayload := func(p1 []byte, p2 []byte) bool {
-			if len(p1) != len(p2) {
-				return false
-			}
-			for i, v := range p2 {
-				if v != p1[i] {
-					return false
-				}
-			}
-			return true
-		}
-
-		switch {
-		case !cmpMap(event.Header, header):
-			t.Error("invalid event header")
-		case !cmpMap(event.Meta, meta):
-			t.Error("invalid event meta")
-		case !cmpPayload(event.Payload, payload):
-			t.Errorf("invalid event payload")
+		if !cmpEvents(sentEvent, receiveEvent) {
+			t.Error("invalid event received")
 		}
 	}
 
-	meta := map[string]string{"processname": "test", "moredata": "strictlyextra"}
-	send_and_verify("EVENT_EMPTY_PAYLOAD", meta, []byte{})
-	send_and_verify("EVENT_FULL_PAYLOAD", meta, []byte("this is a payload test"))
+	sendAndVerify("EVENT_EMPTY_PAYLOAD", []byte{})
+	sendAndVerify("EVENT_FULL_PAYLOAD", []byte("this is a payload test"))
 }
 
+// Test the WriteResult functions.
 func TestWrite(t *testing.T) {
 	reader, writer := io.Pipe()
 	bufReader := bufio.NewReader(reader)
 	bufWriter := bufio.NewWriter(writer)
 
-	read_and_verify := func(expected string) {
+	readAndVerify := func(expected string) {
 		payload, err := ReadResult(bufReader)
 		switch {
 		case err != nil:
@@ -88,12 +148,57 @@ func TestWrite(t *testing.T) {
 	}
 
 	payload := "some arbitrary data"
-	WriteResult(bufWriter, []byte(payload))
-	go read_and_verify(payload)
+	go WriteResult(bufWriter, []byte(payload))
+	readAndVerify(payload)
 
-	WriteResultOK(bufWriter)
-	go read_and_verify("OK")
+	go WriteResultOK(bufWriter)
+	readAndVerify("OK")
 
-	WriteResultFail(bufWriter)
-	go read_and_verify("FAIL")
+	go WriteResultFail(bufWriter)
+	readAndVerify("FAIL")
+}
+
+// Test the Listen function.
+func TestListen(t *testing.T) {
+	stdin, stdinWriter := io.Pipe()
+	stdoutReader, stdout := io.Pipe()
+
+	ch := make(chan *Event, 1)
+	reader := bufio.NewReader(stdoutReader)
+
+	go func() {
+		if err := Listen(bufio.NewReader(stdin), bufio.NewWriter(stdout), ch); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	serial := 0
+	sendAndVerify := func(eventname string, payload []byte) {
+		sentEvent := createEvent(serial, eventname, "test", payload)
+		serial++
+
+		bytes := sentEvent.ToBytes()
+		_, err := stdinWriter.Write(bytes)
+		if err != nil {
+			t.Error(err)
+		}
+
+		result, err := ReadResult(reader)
+		if err != nil {
+			t.Error(err)
+		}
+		if string(result) != "OK" {
+			t.Error("invalid result")
+		}
+
+		receiveEvent, ok := <-ch
+		if !ok {
+			t.Error("channel closed")
+		} else if !cmpEvents(sentEvent, receiveEvent) {
+			t.Error("invalid event received")
+		}
+	}
+
+	sendAndVerify("PROCESS_STATE_RUNNING", []byte{})
+	sendAndVerify("PROCESS_LOG_STDERR", []byte("some pretend log data"))
 }
