@@ -3,9 +3,7 @@ package supervisor
 import (
 	"bufio"
 	"io"
-	"os"
 	"strconv"
-	"syscall"
 	"testing"
 )
 
@@ -52,32 +50,6 @@ func cmpEvents(e1 *Event, e2 *Event) bool {
 	default:
 		return cmpMap(e1.Header, e2.Header) && cmpMap(e1.Meta, e2.Meta) && cmpBytes(e1.Payload, e2.Payload)
 	}
-}
-
-// Redirect stdout.
-func redirectStdout() (stdout *os.File, err error) {
-	stdout, stdoutWriter, err := os.Pipe()
-	if err == nil {
-		err = syscall.Dup2(int(stdoutWriter.Fd()), int(os.Stdout.Fd()))
-	}
-	return
-}
-
-// Redirect stdin.
-func redirectStdin() (stdin *os.File, err error) {
-	stdinReader, stdin, err := os.Pipe()
-	if err == nil {
-		err = syscall.Dup2(int(stdinReader.Fd()), int(syscall.Stdin))
-	}
-	return
-}
-
-func unredirectStdout() (err error) {
-	stdout := os.NewFile(uintptr(syscall.Stdout), "/dev/stdout")
-	if err == nil {
-		err = syscall.Dup2(int(stdout.Fd()), int(os.Stdout.Fd()))
-	}
-	return
 }
 
 // Construct an event.
