@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"io"
 	"strconv"
-	"strings"
 	"testing"
 )
 
@@ -79,30 +78,11 @@ func TestWrite(t *testing.T) {
 	bufWriter := bufio.NewWriter(writer)
 
 	read_and_verify := func(expected string) {
-		data, err := bufReader.ReadBytes('\n')
-		if err != nil {
+		payload, err := ReadResult(bufReader)
+		switch {
+		case err != nil:
 			t.Error(err)
-		}
-
-		header := string(data)
-		tokens := strings.SplitN(header, " ", 2)
-		if len(tokens) != 2 || tokens[0] != "RESULT" {
-			t.Errorf("Result header invalid: %s", header)
-		}
-
-		length, err := strconv.Atoi(tokens[1])
-		if err != nil {
-			t.Errorf("Result length invalid: %s", tokens[2])
-		}
-
-		data = make([]byte, length)
-		_, err = bufReader.Read(data)
-		if err != nil {
-			t.Error(err)
-		}
-
-		payload := string(data)
-		if payload != expected {
+		case string(payload) != expected:
 			t.Errorf("Payload result invalid: %s != %s", payload, expected)
 		}
 	}

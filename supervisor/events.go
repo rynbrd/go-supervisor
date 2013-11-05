@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"errors"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -171,6 +172,29 @@ func WriteResultOK(writer *bufio.Writer) (n int, err error) {
 // WriteResultFail is a shortcut to write a Fail result to the stream.
 func WriteResultFail(writer *bufio.Writer) (n int, err error) {
 	return WriteResult(writer, []byte("FAIL"))
+}
+
+// ReadResult reads an event result and returns the payload.
+func ReadResult(reader *bufio.Reader) (payload []byte, err error) {
+	header, err := reader.ReadBytes('\n')
+	if err != nil {
+		return
+	}
+
+	tokens := strings.SplitN(string(header), " ", 2)
+	if len(tokens) != 2 || tokens[0] != "RESULT" {
+		err = errors.New(fmt.Sprintf("result header invalid: %s", header))
+		return
+	}
+
+	length, err := strconv.Atoi(tokens[1])
+	if err != nil {
+		return
+	}
+
+	payload = make([]byte, length)
+	_, err = reader.Read(payload)
+	return
 }
 
 // Listen is a simple Supervisor event listener that sends received events over
