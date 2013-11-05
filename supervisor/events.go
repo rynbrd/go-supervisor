@@ -211,6 +211,7 @@ func Listen(in io.Reader, out io.Writer, ch chan *Event) error {
 	var event *Event
 	var err error
 
+	fmt.Print("READY\n")
 	for {
 		event, err = ReadEvent(in)
 		if err != nil {
@@ -218,6 +219,7 @@ func Listen(in io.Reader, out io.Writer, ch chan *Event) error {
 		}
 		ch <- event
 		WriteResultOK(out)
+		fmt.Print("READY\n")
 	}
 
 	if err == io.EOF {
