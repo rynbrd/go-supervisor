@@ -1,9 +1,9 @@
 package supervisor
 
 import (
-	"errors"
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -160,6 +160,7 @@ func WriteResult(writer *bufio.Writer, result []byte) (n int, err error) {
 
 	n2, err := writer.Write(result)
 	n += n2
+	writer.Flush()
 	return
 }
 
@@ -186,7 +187,7 @@ func ReadResult(reader *bufio.Reader) (payload []byte, err error) {
 		return
 	}
 
-	length, err := strconv.Atoi(tokens[1])
+	length, err := strconv.Atoi(strings.TrimRight(tokens[1], "\n"))
 	if err != nil {
 		return
 	}
