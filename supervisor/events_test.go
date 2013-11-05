@@ -111,9 +111,9 @@ func TestWrite(t *testing.T) {
 		payload, err := ReadResult(reader)
 		switch {
 		case err != nil:
-			t.Error(err)
+			t.Errorf(`ReadResult() => error{"%v"}, want payload "%s"`, err, expected)
 		case string(payload) != expected:
-			t.Errorf("Payload result invalid: %s != %s", payload, expected)
+			t.Errorf(`ReadResult() => "%s", want "%s"`, payload, expected)
 		}
 	}
 
@@ -138,7 +138,7 @@ func TestListen(t *testing.T) {
 
 	go func() {
 		if err := Listen(stdin, stdout, ch); err != nil {
-			t.Error(err)
+			t.Errorf(`Listen() => error{"%v"}, want nil`, err)
 		}
 	}()
 
@@ -148,24 +148,21 @@ func TestListen(t *testing.T) {
 		serial++
 
 		bytes := sentEvent.ToBytes()
-		_, err := stdinWriter.Write(bytes)
-		if err != nil {
-			t.Error(err)
+		if _, err := stdinWriter.Write(bytes); err != nil {
+			t.Errorf(`stdin.Write() => error{"%v"}, want n=%d`, err, len(bytes))
 		}
 
-		result, err := ReadResult(reader)
-		if err != nil {
-			t.Error(err)
-		}
-		if string(result) != "OK" {
-			t.Error("invalid result")
+		if result, err := ReadResult(reader); err != nil {
+			t.Errorf(`ReadResult() => error{"%v"}, want result="OK"`, err)
+		} else if string(result) != "OK" {
+			t.Errorf(`ReadResult() => "%s", want "OK"`, result)
 		}
 
 		receiveEvent, ok := <-ch
 		if !ok {
-			t.Error("channel closed")
+			t.Errorf(`(event, ok := <-ch) => channel closed, want event`)
 		} else if !cmpEvents(sentEvent, receiveEvent) {
-			t.Error("invalid event received")
+			t.Errorf(`(event, ok := <-ch) => got %s, want %s`, receiveEvent, sentEvent)
 		}
 	}
 
