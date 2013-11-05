@@ -41,6 +41,11 @@ func (event Event) getHeaderInt(key string) int {
 	return intval
 }
 
+// String returns the event as a human readable string.
+func (event Event) String() string {
+	return fmt.Sprintf("Event{%d:%s}", event.Serial(), event.Name())
+}
+
 // Name returns the name of the event.
 func (event Event) Name() string {
 	return event.getHeaderString("eventname")
