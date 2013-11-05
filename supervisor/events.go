@@ -79,7 +79,7 @@ func (event Event) ToBytes() []byte {
 	meta := mapser(event.Meta)
 	payload := make([]byte, 0, len(meta)+len(event.Payload)+1)
 	payload = append(payload, meta...)
-	if len(event.Payload) > 0 {
+	if event.Payload == nil || len(event.Payload) > 0 {
 		payload = append(payload, '\n')
 		payload = append(payload, event.Payload...)
 	}
