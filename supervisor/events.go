@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -200,22 +199,18 @@ func ReadResult(reader *bufio.Reader) (payload []byte, err error) {
 // Listen is a simple Supervisor event listener that sends received events over
 // the provided channel. It responds to Supervisor with an OK after queuing an
 // event in the channel. It returns an error if one occurs or nil if the reader
-// encounters an EOF. It reads events from os.Stdio and send results over
-// os.Stdout as expected by Supervisor.
-func Listen(ch chan *Event) error {
+// encounters an EOF.
+func Listen(in *bufio.Reader, out *bufio.Writer, ch chan *Event) error {
 	var event *Event
 	var err error
-	reader := bufio.NewReader(os.Stdin)
-	writer := bufio.NewWriter(os.Stdout)
 
-	fmt.Print("READY\n")
 	for {
-		event, err = ReadEvent(reader)
+		event, err = ReadEvent(in)
 		if err != nil {
 			break
 		}
 		ch <- event
-		WriteResultOK(writer)
+		WriteResultOK(out)
 	}
 
 	if err == io.EOF {
