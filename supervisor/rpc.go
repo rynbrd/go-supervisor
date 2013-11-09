@@ -14,13 +14,20 @@ func makeParams(params ...interface{}) xmlrpc.Params {
 	return xmlrpc.Params{params}
 }
 
-type State struct {
+type SupervisorState struct {
 	StateCode int64
 	StateName string
 }
 
-func (state State) String() string {
-	return fmt.Sprintf(`State{%d, "%s"}`, state.StateCode, state.StateName)
+func newSupervisorState(result xmlrpc.Struct) *SupervisorState {
+	state := new(SupervisorState)
+	state.StateCode = result["statecode"].(int64)
+	state.StateName = result["statename"].(string)
+	return state
+}
+
+func (state SupervisorState) String() string {
+	return fmt.Sprintf(`SupervisorState{%d, "%s"}`, state.StateCode, state.StateName)
 }
 
 type ProcessInfo struct {
@@ -143,15 +150,11 @@ func (client Client) GetIdentification() (id string, err error) {
 }
 
 // GetState returns the Supervisor process state.
-func (client Client) GetState() (state *State, err error) {
+func (client Client) GetState() (state *SupervisorState, err error) {
 	result := xmlrpc.Struct{}
-	if err = client.RpcClient.Call("supervisor.getState", nil, &result); err != nil {
-		return
+	if err = client.RpcClient.Call("supervisor.getState", nil, &result); err == nil {
+		state = newSupervisorState(result)
 	}
-
-	state = new(State)
-	state.StateCode = result["statecode"].(int64)
-	state.StateName = result["statename"].(string)
 	return
 }
 
