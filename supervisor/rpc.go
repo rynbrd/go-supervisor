@@ -114,7 +114,7 @@ type Client struct {
 }
 
 // NewClient creates a new supervisor RPC client.
-func NewClient(url string) (client *Client, err error) {
+func NewClient(url string) (client Client, err error) {
 	var rpc *xmlrpc.Client
 	if rpc, err = xmlrpc.NewClient(url, nil); err != nil {
 		return
@@ -128,7 +128,7 @@ func NewClient(url string) (client *Client, err error) {
 		err = errors.New(fmt.Sprintf("want Supervisor API version %s, got %s instead", apiVersion, version))
 		return
 	}
-	client = &Client{rpc, version}
+	client = Client{rpc, version}
 	return
 }
 
