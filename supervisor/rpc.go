@@ -47,23 +47,23 @@ type ProcessInfo struct {
 	PID           int64
 }
 
-func newProcessInfo(result xmlrpc.Struct) *ProcessInfo {
-	info := new(ProcessInfo)
-	info.Name = result["name"].(string)
-	info.Description = result["description"].(string)
-	info.Group = result["group"].(string)
-	info.Start = result["start"].(int64)
-	info.Stop = result["stop"].(int64)
-	info.Now = result["now"].(int64)
-	info.State = result["state"].(int64)
-	info.StateName = result["statename"].(string)
-	info.SpawnErr = result["spawnerr"].(string)
-	info.ExitStatus = result["exitstatus"].(int64)
-	info.Logfile = result["logfile"].(string)
-	info.StdoutLogfile = result["stdout_logfile"].(string)
-	info.StderrLogfile = result["stderr_logfile"].(string)
-	info.PID = result["pid"].(int64)
-	return info
+func newProcessInfo(result xmlrpc.Struct) ProcessInfo {
+	return ProcessInfo{
+		Name:          result["name"].(string),
+		Description:   result["description"].(string),
+		Group:         result["group"].(string),
+		Start:         result["start"].(int64),
+		Stop:          result["stop"].(int64),
+		Now:           result["now"].(int64),
+		State:         result["state"].(int64),
+		StateName:     result["statename"].(string),
+		SpawnErr:      result["spawnerr"].(string),
+		ExitStatus:    result["exitstatus"].(int64),
+		Logfile:       result["logfile"].(string),
+		StdoutLogfile: result["stdout_logfile"].(string),
+		StderrLogfile: result["stderr_logfile"].(string),
+		PID:           result["pid"].(int64),
+	}
 }
 
 func (info ProcessInfo) String() string {
@@ -77,13 +77,13 @@ type ProcessStatus struct {
 	Status      int64
 }
 
-func newProcessStatus(result xmlrpc.Struct) *ProcessStatus {
-	status := new(ProcessStatus)
-	status.Name = result["name"].(string)
-	status.Description = result["description"].(string)
-	status.Group = result["group"].(string)
-	status.Status = result["status"].(int64)
-	return status
+func newProcessStatus(result xmlrpc.Struct) ProcessStatus {
+	return ProcessStatus{
+		Name:        result["name"].(string),
+		Description: result["description"].(string),
+		Group:       result["group"].(string),
+		Status:      result["status"].(int64),
+	}
 }
 
 func (status ProcessStatus) String() string {
@@ -183,7 +183,7 @@ func (client Client) Restart() (result bool, err error) {
 }
 
 // GetProcessInfo retrieves information for a particular Supervisor process.
-func (client Client) GetProcessInfo(name string) (info *ProcessInfo, err error) {
+func (client Client) GetProcessInfo(name string) (info ProcessInfo, err error) {
 	result := xmlrpc.Struct{}
 	if err = client.RpcClient.Call("supervisor.getProcessInfo", name, &result); err == nil {
 		info = newProcessInfo(result)
@@ -192,10 +192,10 @@ func (client Client) GetProcessInfo(name string) (info *ProcessInfo, err error) 
 }
 
 // GetAllProcessInfo retrieves information for all Supervisor processes.
-func (client Client) GetAllProcessInfo() (info []*ProcessInfo, err error) {
+func (client Client) GetAllProcessInfo() (info []ProcessInfo, err error) {
 	var results []interface{}
 	if err = client.RpcClient.Call("supervisor.getAllProcessInfo", nil, &results); err == nil {
-		info = make([]*ProcessInfo, len(results))
+		info = make([]ProcessInfo, len(results))
 		for i, result := range results {
 			info[i] = newProcessInfo(result.(xmlrpc.Struct))
 		}
@@ -218,10 +218,10 @@ func (client Client) StopProcess(name string, wait bool) (result bool, err error
 }
 
 // StartAllProcesses tells Supervisor to start all stopped processes.
-func (client Client) StartAllProcesses(wait bool) (info []*ProcessStatus, err error) {
+func (client Client) StartAllProcesses(wait bool) (info []ProcessStatus, err error) {
 	var results []interface{}
 	if err = client.RpcClient.Call("supervisor.startAllProcesses", wait, &results); err == nil {
-		info = make([]*ProcessStatus, len(results))
+		info = make([]ProcessStatus, len(results))
 		for i, result := range results {
 			info[i] = newProcessStatus(result.(xmlrpc.Struct))
 		}
@@ -230,10 +230,10 @@ func (client Client) StartAllProcesses(wait bool) (info []*ProcessStatus, err er
 }
 
 // StopAllProcesses teslls Supervisor to stop all running processes.
-func (client Client) StopAllProcesses(wait bool) (info []*ProcessStatus, err error) {
+func (client Client) StopAllProcesses(wait bool) (info []ProcessStatus, err error) {
 	var results []interface{}
 	if err = client.RpcClient.Call("supervisor.stopAllProcesses", wait, &results); err == nil {
-		info = make([]*ProcessStatus, len(results))
+		info = make([]ProcessStatus, len(results))
 		for i, result := range results {
 			info[i] = newProcessStatus(result.(xmlrpc.Struct))
 		}
