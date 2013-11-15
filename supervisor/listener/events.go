@@ -10,6 +10,16 @@ import (
 	"strings"
 )
 
+var (
+	parentEvents []string = []string{
+		"PROCESS_COMMUNICATION",
+		"PROCESS_LOG",
+		"PROCESS_STATE",
+		"SUPERVISOR_STATE_CHANGE",
+		"TICK",
+	}
+)
+
 // Event represents a Supervisor event. An event consists of a header, metadata (meta) and an optional payload.
 type Event struct {
 	Header  map[string]string
@@ -49,6 +59,30 @@ func (event Event) String() string {
 // Name returns the name of the event.
 func (event Event) Name() string {
 	return event.getHeaderString("eventname")
+}
+
+// Parent returns the parent type of the event or an empty string if it has none.
+func (event Event) Parent() string {
+	name := event.Name()
+	for _, parent := range parentEvents {
+		prefix := parent + "_"
+		if len(prefix) <= len(name) && prefix == name[:len(prefix)] {
+			return parent
+		}
+	}
+	return ""
+}
+
+// State determines the state of the process or supervisor instance based on the name.
+func (event Event) State() string {
+	parent := event.Parent()
+	switch parent {
+	case "PROCESS_STATE":
+		fallthrough
+	case "SUPERVISOR_STATE_CHANGE":
+		return event.Name()[len(parent)+1:]
+	}
+	return ""
 }
 
 // Serial returns the event serial number.
