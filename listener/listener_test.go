@@ -12,7 +12,7 @@ func TestListen(t *testing.T) {
 	stdin, stdinWriter := io.Pipe()
 	stdoutReader, stdout := io.Pipe()
 
-	ch := make(chan *Event, 1)
+	ch := make(chan Event, 1)
 	reader := bufio.NewReader(stdoutReader)
 	listener := NewListener(stdin, stdout)
 
@@ -54,7 +54,7 @@ func TestListen(t *testing.T) {
 		receiveEvent, ok := <-ch
 		if !ok {
 			t.Errorf(`(event, ok := <-ch) => channel closed, want event`)
-		} else if !cmpEvents(sentEvent, receiveEvent) {
+		} else if !cmpEvents(&sentEvent, &receiveEvent) {
 			t.Errorf(`(event, ok := <-ch) => got %s, want %s`, receiveEvent, sentEvent)
 		}
 	}

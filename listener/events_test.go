@@ -53,9 +53,9 @@ func cmpEvents(e1 *Event, e2 *Event) bool {
 }
 
 // Construct an event.
-func createEvent(serial int, eventname string, processname string, payload []byte) *Event {
+func createEvent(serial int, eventname string, processname string, payload []byte) Event {
 	serialstr := strconv.Itoa(serial)
-	return &Event{
+	return Event{
 		map[string]string{
 			"ver":        "3.0",
 			"server":     "supervisor",
@@ -94,7 +94,7 @@ func TestReadEvent(t *testing.T) {
 			t.Error(err)
 		}
 
-		if !cmpEvents(sentEvent, receiveEvent) {
+		if !cmpEvents(&sentEvent, &receiveEvent) {
 			t.Error("invalid event received")
 		}
 	}

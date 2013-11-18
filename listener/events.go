@@ -69,7 +69,7 @@ type Event struct {
 // ReadEvent waits for a Supervisor event and returns the parsed event. The err
 // will be non-nil if an error occurred. This may include io.EOF which should
 // preceed closing of the reader.
-func ReadEvent(reader io.Reader) (event *Event, err error) {
+func ReadEvent(reader io.Reader) (event Event, err error) {
 	buf := bufio.NewReader(reader)
 	data, err := buf.ReadBytes('\n')
 	if err != nil {
@@ -88,7 +88,7 @@ func ReadEvent(reader io.Reader) (event *Event, err error) {
 		return
 	}
 
-	event = new(Event)
+	event = Event{}
 	event.Header = header
 	event.Meta, event.Payload = parsePayload(rawPayload)
 	return
@@ -100,22 +100,22 @@ func (event Event) String() string {
 }
 
 // HeaderInt returns the requested header value as an int or 0 if missing or broken.
-func (event *Event) HeaderInt(key string) int {
+func (event Event) HeaderInt(key string) int {
 	return mapInt(event.Header, key)
 }
 
 // MetaInt returns the requested meta value as an int or 0 if missing or broken.
-func (event *Event) MetaInt(key string) int {
+func (event Event) MetaInt(key string) int {
 	return mapInt(event.Meta, key)
 }
 
 // Name returns the name of the event.
-func (event *Event) Name() string {
+func (event Event) Name() string {
 	return event.Header["eventname"]
 }
 
 // Parent returns the parent type of the event.
-func (event *Event) Parent() string {
+func (event Event) Parent() string {
 	name := event.Name()
 	for _, parent := range parentEvents {
 		prefix := parent + "_"
@@ -127,7 +127,7 @@ func (event *Event) Parent() string {
 }
 
 // State determines the state of the process or supervisor instance based on the name.
-func (event *Event) State() string {
+func (event Event) State() string {
 	parent := event.Parent()
 	switch parent {
 	case "PROCESS_STATE":
@@ -139,27 +139,27 @@ func (event *Event) State() string {
 }
 
 // Serial returns the event serial number.
-func (event *Event) Serial() int {
+func (event Event) Serial() int {
 	return event.HeaderInt("serial")
 }
 
 // Pool returns the event pool where the event originated.
-func (event *Event) Pool() string {
+func (event Event) Pool() string {
 	return event.Header["pool"]
 }
 
 // PoolSerial returns the serial of the event in the event pool where the event originated.
-func (event *Event) PoolSerial() int {
+func (event Event) PoolSerial() int {
 	return event.HeaderInt("poolserial")
 }
 
 // Version returns the version of the Supervisor instance that sent the event.
-func (event *Event) Version() string {
+func (event Event) Version() string {
 	return event.Header["ver"]
 }
 
 // ToBytes converts the event to a byte array suitable for parsing.
-func (event *Event) ToBytes() []byte {
+func (event Event) ToBytes() []byte {
 	mapser := func(data map[string]string) []byte {
 		parts := make([]string, 0, len(data))
 		for k, v := range data {
