@@ -1,9 +1,8 @@
-package events
+package listener
 
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -20,116 +19,14 @@ var (
 	}
 )
 
-// Event represents a Supervisor event. An event consists of a header, metadata (meta) and an optional payload.
-type Event struct {
-	Header  map[string]string
-	Meta    map[string]string
-	Payload []byte
-}
-
-// getHeaderString returns the requested header value as a string or an empty string if missing.
-func (event Event) getHeaderString(key string) string {
-	if value, ok := event.Header[key]; ok {
-		return value
-	} else {
-		return ""
-	}
-}
-
-// getHeaderInt returns the requested header value as an int or 0 if missing.
-func (event Event) getHeaderInt(key string) int {
-	strval, ok := event.Header[key]
-	if !ok {
-		return 0
-	}
-
-	intval, err := strconv.Atoi(strval)
-	if err != nil {
-		return 0
-	}
-
-	return intval
-}
-
-// String returns the event as a human readable string.
-func (event Event) String() string {
-	return fmt.Sprintf("Event{%d:%s}", event.Serial(), event.Name())
-}
-
-// Name returns the name of the event.
-func (event Event) Name() string {
-	return event.getHeaderString("eventname")
-}
-
-// Parent returns the parent type of the event or an empty string if it has none.
-func (event Event) Parent() string {
-	name := event.Name()
-	for _, parent := range parentEvents {
-		prefix := parent + "_"
-		if len(prefix) <= len(name) && prefix == name[:len(prefix)] {
-			return parent
+// mapInt retrieves a value from a map as an int.
+func mapInt(data map[string]string, key string) int {
+	if strval, ok := data[key]; ok {
+		if intval, err := strconv.Atoi(strval); err == nil {
+			return intval
 		}
 	}
-	return ""
-}
-
-// State determines the state of the process or supervisor instance based on the name.
-func (event Event) State() string {
-	parent := event.Parent()
-	switch parent {
-	case "PROCESS_STATE":
-		fallthrough
-	case "SUPERVISOR_STATE_CHANGE":
-		return event.Name()[len(parent)+1:]
-	}
-	return ""
-}
-
-// Serial returns the event serial number.
-func (event Event) Serial() int {
-	return event.getHeaderInt("serial")
-}
-
-// Pool returns the event pool where the event originated.
-func (event Event) Pool() string {
-	return event.getHeaderString("pool")
-}
-
-// PoolSerial returns the serial of the event in the event pool where the event originated.
-func (event Event) PoolSerial() int {
-	return event.getHeaderInt("poolserial")
-}
-
-// Version returns the version of the Supervisor instance that sent the event.
-func (event Event) Version() string {
-	return event.getHeaderString("ver")
-}
-
-// ToBytes converts the event to a byte array suitable for parsing.
-func (event Event) ToBytes() []byte {
-	mapser := func(data map[string]string) []byte {
-		parts := make([]string, 0, len(data))
-		for k, v := range data {
-			parts = append(parts, fmt.Sprintf("%v:%v", k, v))
-		}
-		return []byte(strings.Join(parts, " "))
-	}
-
-	meta := mapser(event.Meta)
-	payload := make([]byte, 0, len(meta)+len(event.Payload)+1)
-	payload = append(payload, meta...)
-	if event.Payload == nil || len(event.Payload) > 0 {
-		payload = append(payload, '\n')
-		payload = append(payload, event.Payload...)
-	}
-
-	event.Header["len"] = strconv.Itoa(len(payload))
-	header := mapser(event.Header)
-	message := make([]byte, 0, len(header)+len(payload))
-	message = append(message, header...)
-	message = append(message, '\n')
-	message = append(message, payload...)
-	return message
+	return 0
 }
 
 // parseMap parses a header or metadata string into a string/string map.
@@ -162,6 +59,13 @@ func parsePayload(data []byte) (meta map[string]string, payload []byte) {
 	return
 }
 
+// Event represents a Supervisor event. An event consists of a header, metadata (meta) and an optional payload.
+type Event struct {
+	Header  map[string]string
+	Meta    map[string]string
+	Payload []byte
+}
+
 // ReadEvent waits for a Supervisor event and returns the parsed event. The err
 // will be non-nil if an error occurred. This may include io.EOF which should
 // preceed closing of the reader.
@@ -190,74 +94,93 @@ func ReadEvent(reader io.Reader) (event *Event, err error) {
 	return
 }
 
-// WriteResult writes an event result to the stream and returns the number of
-// byte written and an error if one occurs.
-func WriteResult(writer io.Writer, result []byte) (n int, err error) {
-	n, err = fmt.Fprintf(writer, "RESULT %v\n", len(result))
-	if err != nil {
-		return
-	}
-
-	n2, err := writer.Write(result)
-	n += n2
-	return
+// String returns the event as a human readable string.
+func (event Event) String() string {
+	return fmt.Sprintf("Event{%d:%s}", event.Serial(), event.Name())
 }
 
-// WriteResultOK is a shortcut to write an OK result to the stream.
-func WriteResultOK(writer io.Writer) (n int, err error) {
-	return WriteResult(writer, []byte("OK"))
+// HeaderInt returns the requested header value as an int or 0 if missing or broken.
+func (event *Event) HeaderInt(key string) int {
+	return mapInt(event.Header, key)
 }
 
-// WriteResultFail is a shortcut to write a Fail result to the stream.
-func WriteResultFail(writer io.Writer) (n int, err error) {
-	return WriteResult(writer, []byte("FAIL"))
+// MetaInt returns the requested meta value as an int or 0 if missing or broken.
+func (event *Event) MetaInt(key string) int {
+	return mapInt(event.Meta, key)
 }
 
-// ReadResult reads an event result and returns the payload.
-func ReadResult(reader io.Reader) (payload []byte, err error) {
-	buf := bufio.NewReader(reader)
-	header, err := buf.ReadBytes('\n')
-	if err != nil {
-		return
-	}
-
-	tokens := strings.SplitN(string(header), " ", 2)
-	if len(tokens) != 2 || tokens[0] != "RESULT" {
-		err = errors.New(fmt.Sprintf("result header invalid: %s", header))
-		return
-	}
-
-	length, err := strconv.Atoi(strings.TrimRight(tokens[1], "\n"))
-	if err != nil {
-		return
-	}
-
-	payload = make([]byte, length)
-	_, err = buf.Read(payload)
-	return
+// Name returns the name of the event.
+func (event *Event) Name() string {
+	return event.Header["eventname"]
 }
 
-// Listen is a simple Supervisor event listener that sends received events over
-// the provided channel. It responds to Supervisor with an OK after queuing an
-// event in the channel. It returns an error if one occurs or nil if the reader
-// encounters an EOF.
-func Listen(in io.Reader, out io.Writer, ch chan *Event) error {
-	var event *Event
-	var err error
-
-	fmt.Print("READY\n")
-	for {
-		event, err = ReadEvent(in)
-		if err != nil {
-			break
+// Parent returns the parent type of the event.
+func (event *Event) Parent() string {
+	name := event.Name()
+	for _, parent := range parentEvents {
+		prefix := parent + "_"
+		if len(prefix) <= len(name) && prefix == name[:len(prefix)] {
+			return parent
 		}
-		ch <- event
-		WriteResultOK(out)
-		fmt.Print("READY\n")
+	}
+	return name
+}
+
+// State determines the state of the process or supervisor instance based on the name.
+func (event *Event) State() string {
+	parent := event.Parent()
+	switch parent {
+	case "PROCESS_STATE":
+		fallthrough
+	case "SUPERVISOR_STATE_CHANGE":
+		return event.Name()[len(parent)+1:]
+	}
+	return ""
+}
+
+// Serial returns the event serial number.
+func (event *Event) Serial() int {
+	return event.HeaderInt("serial")
+}
+
+// Pool returns the event pool where the event originated.
+func (event *Event) Pool() string {
+	return event.Header["pool"]
+}
+
+// PoolSerial returns the serial of the event in the event pool where the event originated.
+func (event *Event) PoolSerial() int {
+	return event.HeaderInt("poolserial")
+}
+
+// Version returns the version of the Supervisor instance that sent the event.
+func (event *Event) Version() string {
+	return event.Header["ver"]
+}
+
+// ToBytes converts the event to a byte array suitable for parsing.
+func (event *Event) ToBytes() []byte {
+	mapser := func(data map[string]string) []byte {
+		parts := make([]string, 0, len(data))
+		for k, v := range data {
+			parts = append(parts, fmt.Sprintf("%v:%v", k, v))
+		}
+		return []byte(strings.Join(parts, " "))
 	}
 
-	if err == io.EOF {
-		err = nil
+	meta := mapser(event.Meta)
+	payload := make([]byte, 0, len(meta)+len(event.Payload)+1)
+	payload = append(payload, meta...)
+	if event.Payload == nil || len(event.Payload) > 0 {
+		payload = append(payload, '\n')
+		payload = append(payload, event.Payload...)
 	}
-	return err
+
+	event.Header["len"] = strconv.Itoa(len(payload))
+	header := mapser(event.Header)
+	message := make([]byte, 0, len(header)+len(payload))
+	message = append(message, header...)
+	message = append(message, '\n')
+	message = append(message, payload...)
+	return message
 }
