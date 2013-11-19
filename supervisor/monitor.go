@@ -1,9 +1,7 @@
-package monitor
+package supervisor
 
 import (
 	"errors"
-	"go-supervisor/listener"
-	"go-supervisor/rpc"
 	"io"
 	"strconv"
 )
@@ -22,13 +20,13 @@ const (
 // Get name from process data.
 func getProcessName(data interface{}) (name string, err error) {
 	switch data.(type) {
-	case listener.Event:
+	case Event:
 		var ok bool
-		if name, ok = (data.(listener.Event)).Meta["processname"]; !ok {
+		if name, ok = (data.(Event)).Meta["processname"]; !ok {
 			err = errors.New("processname not found in event metadata")
 		}
-	case rpc.ProcessInfo:
-		name = (data.(rpc.ProcessInfo)).Name
+	case ProcessInfo:
+		name = (data.(ProcessInfo)).Name
 	default:
 		err = errors.New("invalid data type")
 	}
@@ -60,8 +58,8 @@ type ProcessStateEvent struct {
 }
 
 type Monitor struct {
-	Client rpc.Client
-	Listener listener.Listener
+	Client Client
+	Listener Listener
 	Supervisor *Supervisor
 	Processes map[string]*Process
 	events chan interface{}
@@ -69,12 +67,12 @@ type Monitor struct {
 
 // NewMonitor creates a new Supervisor monitor.
 func NewMonitor(url string, in io.Reader, out io.Writer, events chan interface{}) (mon Monitor, err error) {
-	client, err := rpc.NewClient(url)
+	client, err := NewClient(url)
 	if err != nil {
 		return
 	}
 
-	listener := listener.NewListener(in, out)
+	listener := NewListener(in, out)
 
 	mon = Monitor{
 		client,
@@ -118,10 +116,10 @@ func (mon Monitor) updateProcess(data interface{}) error {
 		fromState := ""
 
 		switch data.(type) {
-		case listener.Event:
-			event := data.(listener.Event)
+		case Event:
+			event := data.(Event)
 			fromState = event.Meta["from_state"]
-			proc.updateFromListener(data.(listener.Event))
+			proc.updateFromListener(data.(Event))
 			emit = true
 
 			if val, ok := event.Meta["tries"]; ok {
@@ -129,10 +127,10 @@ func (mon Monitor) updateProcess(data interface{}) error {
 					return err
 				}
 			}
-		case rpc.ProcessInfo:
+		case ProcessInfo:
 			fromState = proc.State
 			fromPid := proc.PID
-			proc.updateFromRpc(data.(rpc.ProcessInfo))
+			proc.updateFromRpc(data.(ProcessInfo))
 			emit = fromState != proc.State || fromPid != proc.PID
 		default:
 			return errors.New("invalid data type")
@@ -182,7 +180,7 @@ func (mon Monitor) Refresh() (err error) {
 	mon.updateSupervisor(name, state.StateName)
 
 	// add or update processes
-	allInfoMap := make(map[string]*rpc.ProcessInfo, len(allInfo))
+	allInfoMap := make(map[string]*ProcessInfo, len(allInfo))
 	for _, info := range allInfo {
 		allInfoMap[info.Name] = &info
 		mon.updateProcess(info)
@@ -200,7 +198,7 @@ func (mon Monitor) Refresh() (err error) {
 // Run monitors the status of the Supervisor instance and sends events to the provided channel.
 func (mon Monitor) Run() error {
 	done := make(chan bool)
-	events := make(chan listener.Event)
+	events := make(chan Event)
 
 	defer func() {
 		close(events)

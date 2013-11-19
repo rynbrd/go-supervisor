@@ -1,9 +1,7 @@
-package monitor
+package supervisor
 
 import (
 	"errors"
-	"go-supervisor/listener"
-	"go-supervisor/rpc"
 	"strconv"
 )
 
@@ -15,7 +13,7 @@ type Process struct {
 }
 
 // update the process from a listener event
-func (proc *Process) updateFromListener(event listener.Event) error {
+func (proc *Process) updateFromListener(event Event) error {
 	name, ok := event.Meta["processname"]
 	if !ok {
 		return errors.New("processname not found in metadata")
@@ -48,7 +46,7 @@ func (proc *Process) updateFromListener(event listener.Event) error {
 }
 
 // update the process from an rpc response
-func (proc *Process) updateFromRpc(info rpc.ProcessInfo) {
+func (proc *Process) updateFromRpc(info ProcessInfo) {
 	proc.Name = info.Name
 	proc.Group = info.Group
 	proc.State = info.StateName
@@ -58,10 +56,10 @@ func (proc *Process) updateFromRpc(info rpc.ProcessInfo) {
 // update the process from process data
 func (proc *Process) update(data interface{}) error {
 	switch data.(type) {
-	case listener.Event:
-		return proc.updateFromListener(data.(listener.Event))
-	case rpc.ProcessInfo:
-		proc.updateFromRpc(data.(rpc.ProcessInfo))
+	case Event:
+		return proc.updateFromListener(data.(Event))
+	case ProcessInfo:
+		proc.updateFromRpc(data.(ProcessInfo))
 	default:
 		return errors.New("invalid data type")
 	}

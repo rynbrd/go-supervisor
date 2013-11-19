@@ -4,13 +4,13 @@ API toolkit for Supervisor written in Go!
 
 Event Listener
 --------------
-The listener package implements a Supervisor event listener. The following code illustrates basic usage of the listener:
+Listener implements a Supervisor event listener. The following code illustrates basic usage of the listener:
 
 ```
 func main() {
 	done := make(chan bool)
-	events := make(chan listener.Event)
-	evl := listener.NewListener(os.Stdin, os.Stdout)
+	events := make(chan supervisor.Event)
+	evl := supervisor.NewListener(os.Stdin, os.Stdout)
 
 	go func() {
 		for event := range events {
@@ -27,11 +27,11 @@ func main() {
 
 RPC Client
 ----------
-The rpc package implements an HTML RPC client to communicate with Supervisor. The following code demonstrates using the client to start a service:
+Client implements an HTML RPC client to communicate with Supervisor. The following code demonstrates using the client to start a service:
 
 ```
 func main() {
-	client, err := rpc.NewClient("http://localhost:9001/RPC2")
+	client, err := supervisor.NewClient("http://localhost:9001/RPC2")
 	if err != nil {
 		fmt.Printf("Error: %s\n", err)
 		os.Exit(1)
@@ -50,7 +50,7 @@ func main() {
 
 Stateful Monitor
 ----------------
-The monitor package implements a stateful monitoring system. It maintains the current state of all processes and emits events when processes are added, removed, or change state. It will also emit events when the Supervisor instance changes state. It will also do a full state refresh on any TICK event it receives. For full functionality it requires the PROCESS_STATE, SUPERVISOR_STATE_CHANGE, and a TICK event. If the TICK event is removed then no events will be emitted for process removal.
+Monitor implements a stateful monitoring system. It maintains the current state of all processes and emits events when processes are added, removed, or change state. It will also emit events when the Supervisor instance changes state. It will also do a full state refresh on any TICK event it receives. For full functionality it requires the PROCESS_STATE, SUPERVISOR_STATE_CHANGE, and a TICK event. If the TICK event is removed then no events will be emitted for process removal.
 
 As an example:
 
@@ -58,7 +58,7 @@ As an example:
 func main() {
 	url := "http://localhost:9001/RPC2"
 	events := make(chan interface{})
-	mon, err := monitor.NewMonitor(url, os.Stdin, os.Stdout, events)
+	mon, err := supervisor.NewMonitor(url, os.Stdin, os.Stdout, events)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
@@ -68,19 +68,19 @@ func main() {
 	go func() {
 		for event := range events {
 			switch event.(type) {
-			case monitor.ProcessAddEvent:
-				process := (event.(monitor.ProcessAddEvent)).Process
+			case supervisor.ProcessAddEvent:
+				process := (event.(supervisor.ProcessAddEvent)).Process
 				fmt.Fprintf(os.Stderr, "Process %s added\n", process.Name)
-			case monitor.ProcessRemoveEvent:
-				process := (event.(monitor.ProcessRemoveEvent)).Process
+			case supervisor.ProcessRemoveEvent:
+				process := (event.(supervisor.ProcessRemoveEvent)).Process
 				fmt.Fprintf(os.Stderr, "Process %s added\n", process.Name)
-			case monitor.ProcessStateEvent:
-				process := (event.(monitor.ProcessStateEvent)).Process
-				from := (event.(monitor.ProcessStateEvent)).FromState
+			case supervisor.ProcessStateEvent:
+				process := (event.(supervisor.ProcessStateEvent)).Process
+				from := (event.(supervisor.ProcessStateEvent)).FromState
 				fmt.Fprintf(os.Stderr, "Process %s state change %s => %s\n", process.Name, from, process.State)
-			case monitor.SupervisorStateEvent:
-				supervisor := (event.(monitor.SupervisorStateEvent)).Supervisor
-				from := (event.(monitor.SupervisorStateEvent)).FromState
+			case supervisor.SupervisorStateEvent:
+				supervisor := (event.(supervisor.SupervisorStateEvent)).Supervisor
+				from := (event.(supervisor.SupervisorStateEvent)).FromState
 				fmt.Fprintf(os.Stderr, "Supervisor \"%s\" state change %s => %s\n", supervisor.Name, from, supervisor.State)
 			default:
 				fmt.Fprintf(os.Stderr, "Unchecked Event: %+v\n", event)

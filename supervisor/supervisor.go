@@ -1,4 +1,4 @@
-package monitor
+package supervisor
 
 type Supervisor struct {
 	Name      string
