@@ -58,11 +58,11 @@ type ProcessStateEvent struct {
 }
 
 type Monitor struct {
-	Client Client
-	Listener Listener
+	Client     Client
+	Listener   Listener
 	Supervisor *Supervisor
-	Processes map[string]*Process
-	events chan interface{}
+	Processes  map[string]*Process
+	events     chan interface{}
 }
 
 // NewMonitor creates a new Supervisor monitor.

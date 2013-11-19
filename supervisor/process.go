@@ -6,10 +6,10 @@ import (
 )
 
 type Process struct {
-	Name   string
-	Group  string
-	State  string
-	PID    int
+	Name  string
+	Group string
+	State string
+	PID   int
 }
 
 // update the process from a listener event

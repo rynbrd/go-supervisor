@@ -1,8 +1,8 @@
 package supervisor
 
 type Supervisor struct {
-	Name      string
-	State     string
+	Name  string
+	State string
 }
 
 func NewSupervisor() *Supervisor {
